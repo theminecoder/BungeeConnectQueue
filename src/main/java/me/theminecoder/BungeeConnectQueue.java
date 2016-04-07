@@ -147,6 +147,7 @@ public final class BungeeConnectQueue extends Plugin implements Runnable, Listen
                 }
 
                 player.connect(serverInfo);
+                playerServerConnectAttempts.put(serverTo, connectAttempt);
                 //this.getLogger().info("Sent "+player.getName()+" to "+serverTo+"!");
             }
             for (String server : serversToRemove) {
