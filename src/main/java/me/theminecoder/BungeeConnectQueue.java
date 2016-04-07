@@ -5,6 +5,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteStreams;
+import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.connection.Server;
@@ -86,6 +87,8 @@ public final class BungeeConnectQueue extends Plugin implements Runnable, Listen
                         playerQueues.get(serverToKey).remove(player.getUniqueId());
                     }
                     playerQueues.put(serverTo, player.getUniqueId());
+                    long seconds = TimeUnit.MILLISECONDS.toSeconds(500 * playerQueues.get(serverTo).size());
+                    player.sendMessage(ChatColor.GREEN + "You will be transported to this server in approximately " + seconds + " second" + (seconds == 1 ? "" : "s") + "!");
                     //this.getLogger().info("Queued "+player.getName()+" as #"+playerQueues.get(serverTo).size()+" heading to "+serverTo);
                 }
             }
