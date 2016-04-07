@@ -2,6 +2,7 @@ package me.theminecoder;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteStreams;
 import net.md_5.bungee.api.config.ServerInfo;
@@ -9,19 +10,18 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
+import net.md_5.bungee.api.event.ServerKickEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.event.EventHandler;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public final class BungeeConnectQueue extends Plugin implements Runnable, Listener {
 
     private final ListMultimap<String, UUID> playerQueues = ArrayListMultimap.create();
+    private final Map<String, ServerConnectAttempt> playerServerConnectAttempts = Maps.newHashMap();
 
     @Override
     public void onEnable() {
@@ -101,6 +101,16 @@ public final class BungeeConnectQueue extends Plugin implements Runnable, Listen
         }
     }
 
+    @EventHandler
+    public void onServerConnect(ServerKickEvent event) {
+        synchronized (playerQueues) {
+            ServerConnectAttempt attempt;
+            if ((attempt = playerServerConnectAttempts.get(event.getKickedFrom().getName())) != null && attempt.getPlayer().equals(event.getPlayer().getUniqueId())) {
+                attempt.setLastResponse(event.getKickReason());
+            }
+        }
+    }
+
     @Override
     public void run() {
         synchronized (playerQueues) {
@@ -124,12 +134,51 @@ public final class BungeeConnectQueue extends Plugin implements Runnable, Listen
                     }
                 } while (player == null);
 
+                ServerConnectAttempt connectAttempt = playerServerConnectAttempts.get(serverTo);
+                if (connectAttempt == null || !connectAttempt.getPlayer().equals(player.getUniqueId())) {
+                    connectAttempt = new ServerConnectAttempt(player.getUniqueId());
+                }
+                connectAttempt.setTimes(connectAttempt.getTimes() + 1);
+                if (connectAttempt.getTimes() > 5) {
+                    this.playerQueues.get(serverTo).remove(player.getUniqueId());
+                }
+
                 player.connect(serverInfo);
                 //this.getLogger().info("Sent "+player.getName()+" to "+serverTo+"!");
             }
             for (String server : serversToRemove) {
                 playerQueues.removeAll(server);
             }
+        }
+    }
+
+    private class ServerConnectAttempt {
+        private UUID player;
+        private int times = 0;
+        private String lastResponse;
+
+        public ServerConnectAttempt(UUID player) {
+            this.player = player;
+        }
+
+        public UUID getPlayer() {
+            return player;
+        }
+
+        public String getLastResponse() {
+            return lastResponse;
+        }
+
+        public void setLastResponse(String lastResponse) {
+            this.lastResponse = lastResponse;
+        }
+
+        public int getTimes() {
+            return times;
+        }
+
+        public void setTimes(int times) {
+            this.times = times;
         }
     }
 }
